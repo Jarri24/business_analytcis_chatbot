@@ -1,0 +1,102 @@
+import os
+import pandas as pd
+from google.cloud import bigquery
+from google import genai
+from dotenv import load_dotenv
+
+# Cargar variables de entorno (para la API Key de Gemini)
+load_dotenv()
+
+# --- FORZAR CREDENCIALES DE BIGQUERY DIRECTAMENTE ---
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"C:\Users\JARRISON\OneDrive\1.DAILY\11. CURSOS Y APRENDIZAJE\23.PROYECTOS DE DATA ANALYTICS\credenciales_gcp.json"
+
+# Inicializar clientes
+client_ai = genai.Client()
+client_bq = bigquery.Client(project="ferrous-aleph-507816-i4")
+
+# Definir el esquema de las tablas con las columnas reales exactas
+DB_SCHEMA = """
+Trabajas con una base de datos en Google BigQuery para un e-commerce peruano de repuestos y accesorios de motos. 
+La tabla principal de ventas se llama `ferrous-aleph-507816-i4.ecommerce_analytics.ventas_cloud`.
+Las columnas clave y únicas de esta tabla son:
+- venta_id (STRING): Identificador único de la transacción.
+- fecha (DATE): Fecha en la que se realizó la venta.
+- ciudad_envio (STRING): Ciudad de destino del envío (ej. Lima, Arequipa, Trujillo).
+- producto (STRING): Nombre específico del producto vendido (ej. 'Casco Integral', 'Aceite Sintetico', 'Cadena Reforzada', 'Guantes Cuero', 'Filtro Aire').
+- monto_usd (FLOAT64): Monto total de la venta expresado en Soles (S/).
+
+REGLA ESTRICTA DE COLUMNAS:
+- NO existen columnas llamadas 'cantidad' ni 'categoria_producto'. Para calcular unidades vendidas, conteos de transacciones o agrupar por productos, utiliza únicamente la columna 'producto' o 'venta_id'.
+"""
+
+def generar_sql_desde_pregunta(pregunta_usuario: str) -> str:
+    """Usa Gemini para transformar una pregunta en lenguaje natural a una consulta SQL de BigQuery."""
+    prompt_sistema = f"""
+    {DB_SCHEMA}
+    
+    Tu única tarea es generar una consulta SQL de Google BigQuery válida y limpia que responda a la pregunta del usuario.
+    REGLAS IMPORTANTES:
+    - Devuelve ÚNICAMENTE el código SQL plano, sin bloques de código markdown (como ```sql), sin explicaciones adicionales.
+    """
+    
+    response = client_ai.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=f"{prompt_sistema}\n\nPregunta del usuario: {pregunta_usuario}"
+    )
+    
+    sql_query = response.text.strip().replace("```sql", "").replace("```", "").strip()
+    return sql_query
+
+def ejecutar_consulta_bq(sql: str) -> pd.DataFrame:
+    """Ejecuta el SQL generado en BigQuery y devuelve un DataFrame de Pandas."""
+    query_job = client_bq.query(sql)
+    return query_job.to_dataframe()
+
+def responder_usuario_con_datos(pregunta_usuario: str, df_resultados: pd.DataFrame) -> str:
+    """Toma la pregunta original y el DataFrame obtenido de BigQuery para redactar una respuesta de negocio clara."""
+    datos_texto = df_resultados.to_string(index=False)
+    
+    prompt_analista = f"""
+    Eres un Analista de Negocios experto en Perú. Un usuario te hizo la siguiente pregunta:
+    "{pregunta_usuario}"
+    
+    Para responderla, se ejecutó una consulta en BigQuery y se obtuvieron los siguientes resultados en formato de datos:
+    {datos_texto}
+    
+    INSTRUCCIONES DE FORMATO Y NEGOCIO:
+    - Redacta una respuesta concisa, profesional y directa al grano en español.
+    - Expresa obligatoriamente todas las cantidades monetarias utilizando el símbolo de Soles (S/) (ej. S/ 120.50). NUNCA utilices términos genéricos como "unidades monetarias".
+    - Destaca los insights principales o los números más relevantes que arrojan los datos.
+    - No menciones detalles técnicos de bases de datos o SQL, actúa simplemente como un analista experto explicando los resultados al equipo comercial.
+    """
+    
+    response = client_ai.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt_analista
+    )
+    
+    return response.text.strip()
+
+# --- BLOQUE PRINCIPAL DE PRUEBA EN CONSOLA ---
+if __name__ == "__main__":
+    pregunta = "¿Cuál es la facturación total de Casco Integral?"
+    print(f"🗣️ Usuario: {pregunta}\n")
+    
+    try:
+        print("⏳ Generando consulta SQL...")
+        sql_generado = generar_sql_desde_pregunta(pregunta)
+        print(f"💻 SQL:\n{sql_generado}\n")
+        
+        print("🔄 Consultando Google BigQuery...")
+        df_resultado = ejecutar_consulta_bq(sql_generado)
+        
+        print("🤖 Analizando resultados...")
+        respuesta_final = responder_usuario_con_datos(pregunta, df_resultado)
+        
+        print("\n" + "="*40)
+        print("💡 RESPUESTA DEL ANALISTA VIRTUAL:")
+        print("="*40)
+        print(respuesta_final)
+        
+    except Exception as e:
+        print(f"\n❌ Ocurrió un error: {e}")
