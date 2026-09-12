@@ -108,6 +108,20 @@ def responder_usuario_con_datos(pregunta_usuario: str, df_resultados: pd.DataFra
 # --- CONFIGURACIÓN DE LA INTERFAZ WEB CON STREAMLIT ---
 st.set_page_config(page_title="Business Data Analyst Chatbot", page_icon="🤖", layout="centered")
 
+# --- BARRA LATERAL (SIDEBAR) PARA NUEVA CONVERSACIÓN ---
+with st.sidebar:
+    st.image("[https://img.icons8.com/color/96/chatbot.png](https://img.icons8.com/color/96/chatbot.png)", width=70)
+    st.subheader("Panel de Control")
+    st.markdown("Gestiona tus consultas y hilos de análisis comercial.")
+    
+    if st.button("🗑️ Nueva Conversación", type="primary", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+        
+    st.markdown("---")
+    st.markdown("**Base de Datos:** BigQuery")
+    st.markdown("**Moneda:** Soles Peruanos (S/) 🇵🇪")
+
 st.title("🤖 Business Data Analyst Chatbot")
 st.markdown("Pregúntale al chatbot sobre las ventas, productos y métricas de tu e-commerce de motos (en Soles 🇵🇪).")
 
