@@ -14,17 +14,28 @@ except ImportError:
 
 # --- CONFIGURACIÓN DE CREDENCIALES SEGURA (LOCAL Y CLOUD) ---
 try:
-    # 1. Configurar la API Key de Gemini explícitamente para el SDK nuevo
+    # 1. Buscar la API Key de Gemini probando múltiples formas en los secretos de Streamlit
+    gemini_key = None
     if "GEMINI_API_KEY" in st.secrets:
-        os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+        gemini_key = st.secrets["GEMINI_API_KEY"]
+    elif "gemini_api_key" in st.secrets:
+        gemini_key = st.secrets["gemini_api_key"]
+    elif "GEMINI" in st.secrets and "api_key" in st.secrets["GEMINI"]:
+        gemini_key = st.secrets["GEMINI"]["api_key"]
+
+    if gemini_key:
+        os.environ["GEMINI_API_KEY"] = gemini_key
     
     # 2. Configurar BigQuery con los secretos de la nube
     credentials_info = dict(st.secrets["gcp_service_account"])
     credentials = service_account.Credentials.from_service_account_info(credentials_info)
     client_bq = bigquery.Client(credentials=credentials, project=credentials.project_id)
     
-    # 3. Inicializar el cliente de Gemini
-    client_ai = genai.Client()
+    # 3. Inicializar el cliente de Gemini pasándole la clave de forma explícita y segura
+    if gemini_key:
+        client_ai = genai.Client(api_key=gemini_key)
+    else:
+        client_ai = genai.Client()
         
 except Exception as e:
     # Entorno local de respaldo
