@@ -14,17 +14,20 @@ except ImportError:
 
 # --- CONFIGURACIÓN DE CREDENCIALES SEGURA (LOCAL Y CLOUD) ---
 try:
-    # 1. Configurar BigQuery con los secretos de la nube
+    # 1. Configurar la API Key de Gemini explícitamente para el SDK nuevo
+    if "GEMINI_API_KEY" in st.secrets:
+        os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+    
+    # 2. Configurar BigQuery con los secretos de la nube
     credentials_info = dict(st.secrets["gcp_service_account"])
     credentials = service_account.Credentials.from_service_account_info(credentials_info)
     client_bq = bigquery.Client(credentials=credentials, project=credentials.project_id)
     
-    # 2. Configurar Gemini con la API key de los secretos de forma segura
-    api_key_gemini = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
-    client_ai = genai.Client(api_key=api_key_gemini)
+    # 3. Inicializar el cliente de Gemini
+    client_ai = genai.Client()
         
 except Exception as e:
-    # Entorno local de respaldo (utiliza variable de entorno o ruta genérica segura)
+    # Entorno local de respaldo
     ruta_local_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if ruta_local_env and os.path.exists(ruta_local_env):
         client_bq = bigquery.Client(project="ferrous-aleph-507816-i4")
