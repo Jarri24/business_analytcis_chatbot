@@ -14,28 +14,23 @@ except ImportError:
 
 # --- CONFIGURACIÓN DE CREDENCIALES SEGURA (LOCAL Y CLOUD) ---
 try:
-    # 1. Buscar la API Key de Gemini probando múltiples formas en los secretos de Streamlit
-    gemini_key = None
-    if "GEMINI_API_KEY" in st.secrets:
-        gemini_key = st.secrets["GEMINI_API_KEY"]
-    elif "gemini_api_key" in st.secrets:
-        gemini_key = st.secrets["gemini_api_key"]
-    elif "GEMINI" in st.secrets and "api_key" in st.secrets["GEMINI"]:
-        gemini_key = st.secrets["GEMINI"]["api_key"]
-
-    if gemini_key:
-        os.environ["GEMINI_API_KEY"] = gemini_key
-    
-    # 2. Configurar BigQuery con los secretos de la nube
+    # 1. Configurar BigQuery con los secretos de la nube
     credentials_info = dict(st.secrets["gcp_service_account"])
     credentials = service_account.Credentials.from_service_account_info(credentials_info)
     client_bq = bigquery.Client(credentials=credentials, project=credentials.project_id)
     
-    # 3. Inicializar el cliente de Gemini pasándole la clave de forma explícita y segura
-    if gemini_key:
-        client_ai = genai.Client(api_key=gemini_key)
+    # 2. Obtener y configurar la API Key de Gemini desde la sección dedicada de los secretos
+    if "gemini" in st.secrets and "api_key" in st.secrets["gemini"]:
+        gemini_api_key = st.secrets["gemini"]["api_key"]
+    elif "GEMINI_API_KEY" in st.secrets:
+        gemini_api_key = st.secrets["GEMINI_API_KEY"]
     else:
-        client_ai = genai.Client()
+        gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+    if not gemini_api_key:
+        raise ValueError("No API key was provided for Gemini.")
+
+    client_ai = genai.Client(api_key=gemini_api_key)
         
 except Exception as e:
     # Entorno local de respaldo
@@ -44,7 +39,7 @@ except Exception as e:
         client_bq = bigquery.Client(project="ferrous-aleph-507816-i4")
         client_ai = genai.Client()
     else:
-        st.error(f"⚠️ Error al inicializar los clientes: {e}. Asegúrate de configurar los 'Secrets' en Streamlit Cloud.")
+        st.error(f"⚠️ Error al inicializar los clientes: {e}. Asegúrate de configurar la sección [gemini] y los 'Secrets' correctamente en Streamlit Cloud.")
         st.stop()
 
 # Definir el esquema de las tablas con las columnas reales exactas
