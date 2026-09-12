@@ -110,8 +110,7 @@ st.set_page_config(page_title="Business Data Analyst Chatbot", page_icon="🤖",
 
 # --- BARRA LATERAL (SIDEBAR) PARA NUEVA CONVERSACIÓN ---
 with st.sidebar:
-    st.image("[https://img.icons8.com/color/96/chatbot.png](https://img.icons8.com/color/96/chatbot.png)", width=70)
-    st.subheader("Panel de Control")
+    st.subheader("🤖 Panel de Control")
     st.markdown("Gestiona tus consultas y hilos de análisis comercial.")
     
     if st.button("🗑️ Nueva Conversación", type="primary", use_container_width=True):
