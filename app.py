@@ -14,25 +14,23 @@ except ImportError:
 
 # --- CONFIGURACIÓN DE CREDENCIALES SEGURA (LOCAL Y CLOUD) ---
 try:
-    # Intenta leer de los secretos de Streamlit (esto funciona en la nube)
+    # 1. Configurar BigQuery con los secretos de la nube
     credentials_info = dict(st.secrets["gcp_service_account"])
     credentials = service_account.Credentials.from_service_account_info(credentials_info)
     client_bq = bigquery.Client(credentials=credentials, project=credentials.project_id)
     
-    if "GEMINI_API_KEY" in st.secrets:
-        client_ai = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-    else:
-        client_ai = genai.Client()
+    # 2. Configurar Gemini con la API key de los secretos de forma segura
+    api_key_gemini = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
+    client_ai = genai.Client(api_key=api_key_gemini)
         
 except Exception as e:
-    # Validar si estamos en entorno local de Windows o en la nube
-    ruta_local = r"C:\Users\JARRISON\OneDrive\1.DAILY\11. CURSOS Y APRENDIZAJE\23.PROYECTOS DE DATA ANALYTICS\credenciales_gcp_b.json"
-    if os.path.exists(ruta_local):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ruta_local
+    # Entorno local de respaldo (utiliza variable de entorno o ruta genérica segura)
+    ruta_local_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if ruta_local_env and os.path.exists(ruta_local_env):
         client_bq = bigquery.Client(project="ferrous-aleph-507816-i4")
         client_ai = genai.Client()
     else:
-        st.error(f"⚠️ Error crítico: No se pudieron cargar los 'Secrets' en Streamlit Cloud ni se encontró el archivo local. Asegúrate de configurar los Secrets correctamente en el panel de Streamlit. Detalle: {e}")
+        st.error(f"⚠️ Error al inicializar los clientes: {e}. Asegúrate de configurar los 'Secrets' en Streamlit Cloud.")
         st.stop()
 
 # Definir el esquema de las tablas con las columnas reales exactas
