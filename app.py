@@ -68,7 +68,7 @@ def generar_sql_desde_pregunta(pregunta_usuario: str) -> str:
     """
     
     response = client_ai.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.6-flash",
         contents=f"{prompt_sistema}\n\nPregunta del usuario: {pregunta_usuario}"
     )
     
@@ -99,7 +99,7 @@ def responder_usuario_con_datos(pregunta_usuario: str, df_resultados: pd.DataFra
     """
     
     response = client_ai.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.6-flash",
         contents=prompt_analista
     )
     
