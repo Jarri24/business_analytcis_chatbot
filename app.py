@@ -4,9 +4,13 @@ import pandas as pd
 from google.cloud import bigquery
 from google import genai
 from google.oauth2 import service_account
-from dotenv import load_dotenv
 
-load_dotenv()
+# Cargar variables de entorno localmente si python-dotenv está disponible
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # --- CONFIGURACIÓN DE CREDENCIALES SEGURA (LOCAL Y CLOUD) ---
 try:
@@ -22,7 +26,7 @@ try:
         
 except Exception:
     # Si falla porque estamos en tu PC local, usa tus rutas y variables .env locales
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"C:\Users\JARRISON\OneDrive\1.DAILY\11. CURSOS Y APRENDIZAJE\23.PROYECTOS DE DATA ANALYTICS\credenciales_gcp.json"
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"C:\Users\JARRISON\OneDrive\1.DAILY\11. CURSOS Y APRENDIZAJE\23.PROYECTOS DE DATA ANALYTICS\credenciales_gcp_b.json"
     client_bq = bigquery.Client(project="ferrous-aleph-507816-i4")
     client_ai = genai.Client()
 
@@ -118,7 +122,7 @@ if prompt_usuario := st.chat_input("¿Qué te gustaría saber de tus ventas? (ej
                 # 1. Generar SQL
                 sql_generado = generar_sql_desde_pregunta(prompt_usuario)
                 
-                # 2. Ejecutar consulta en BigQuery
+                # 2. Ejecuta consulta en BigQuery
                 df_resultado = ejecutar_consulta_bq(sql_generado)
                 
                 # 3. Analizar y redactar respuesta de negocio con Gemini
