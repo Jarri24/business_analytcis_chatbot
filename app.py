@@ -1,18 +1,30 @@
 import os
+import streamlit as st
 import pandas as pd
 from google.cloud import bigquery
 from google import genai
+from google.oauth2 import service_account
 from dotenv import load_dotenv
 
-# Cargar variables de entorno (para la API Key de Gemini)
 load_dotenv()
 
-# --- FORZAR CREDENCIALES DE BIGQUERY DIRECTAMENTE ---
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"C:\Users\JARRISON\OneDrive\1.DAILY\11. CURSOS Y APRENDIZAJE\23.PROYECTOS DE DATA ANALYTICS\credenciales_gcp.json"
-
-# Inicializar clientes
-client_ai = genai.Client()
-client_bq = bigquery.Client(project="ferrous-aleph-507816-i4")
+# --- CONFIGURACIÓN DE CREDENCIALES SEGURA (LOCAL Y CLOUD) ---
+try:
+    # Intenta leer de los secretos de Streamlit (esto solo funcionará en la nube)
+    credentials_info = dict(st.secrets["gcp_service_account"])
+    credentials = service_account.Credentials.from_service_account_info(credentials_info)
+    client_bq = bigquery.Client(credentials=credentials, project=credentials.project_id)
+    
+    if "GEMINI_API_KEY" in st.secrets:
+        client_ai = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+    else:
+        client_ai = genai.Client()
+        
+except Exception:
+    # Si falla porque estamos en tu PC local, usa tus rutas y variables .env locales
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"C:\Users\JARRISON\OneDrive\1.DAILY\11. CURSOS Y APRENDIZAJE\23.PROYECTOS DE DATA ANALYTICS\credenciales_gcp.json"
+    client_bq = bigquery.Client(project="ferrous-aleph-507816-i4")
+    client_ai = genai.Client()
 
 # Definir el esquema de las tablas con las columnas reales exactas
 DB_SCHEMA = """
@@ -77,26 +89,46 @@ def responder_usuario_con_datos(pregunta_usuario: str, df_resultados: pd.DataFra
     
     return response.text.strip()
 
-# --- BLOQUE PRINCIPAL DE PRUEBA EN CONSOLA ---
-if __name__ == "__main__":
-    pregunta = "¿Cuál es la facturación total de Casco Integral?"
-    print(f"🗣️ Usuario: {pregunta}\n")
-    
-    try:
-        print("⏳ Generando consulta SQL...")
-        sql_generado = generar_sql_desde_pregunta(pregunta)
-        print(f"💻 SQL:\n{sql_generado}\n")
-        
-        print("🔄 Consultando Google BigQuery...")
-        df_resultado = ejecutar_consulta_bq(sql_generado)
-        
-        print("🤖 Analizando resultados...")
-        respuesta_final = responder_usuario_con_datos(pregunta, df_resultado)
-        
-        print("\n" + "="*40)
-        print("💡 RESPUESTA DEL ANALISTA VIRTUAL:")
-        print("="*40)
-        print(respuesta_final)
-        
-    except Exception as e:
-        print(f"\n❌ Ocurrió un error: {e}")
+# --- CONFIGURACIÓN DE LA INTERFAZ WEB CON STREAMLIT ---
+st.set_page_config(page_title="Business Data Analyst Chatbot", page_icon="🤖", layout="centered")
+
+st.title("🤖 Business Data Analyst Chatbot")
+st.markdown("Pregúntale al chatbot sobre las ventas, productos y métricas de tu e-commerce de motos (en Soles 🇵🇪).")
+
+# Inicializar historial del chat
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Mostrar mensajes anteriores en pantalla
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# Entrada de texto del usuario
+if prompt_usuario := st.chat_input("¿Qué te gustaría saber de tus ventas? (ej. ¿Cuáles son los productos más vendidos?)"):
+    # Agregar mensaje del usuario al historial
+    st.session_state.messages.append({"role": "user", "content": prompt_usuario})
+    with st.chat_message("user"):
+        st.markdown(prompt_usuario)
+
+    # Generar respuesta del asistente
+    with st.chat_message("assistant"):
+        with st.spinner("Analizando tus datos en BigQuery..."):
+            try:
+                # 1. Generar SQL
+                sql_generado = generar_sql_desde_pregunta(prompt_usuario)
+                
+                # 2. Ejecutar consulta en BigQuery
+                df_resultado = ejecutar_consulta_bq(sql_generado)
+                
+                # 3. Analizar y redactar respuesta de negocio con Gemini
+                respuesta_final = responder_usuario_con_datos(prompt_usuario, df_resultado)
+                
+                st.markdown(respuesta_final)
+                
+                # Guardar en el historial
+                st.session_state.messages.append({"role": "assistant", "content": respuesta_final})
+                
+            except Exception as e:
+                error_msg = f"Ocurrió un error al procesar tu pregunta: {e}"
+                st.error(error_msg)
