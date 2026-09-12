@@ -2,3 +2,4 @@ credenciales_gcp.json
 .env
 __pycache__/
 .streamlit/
+venv/
